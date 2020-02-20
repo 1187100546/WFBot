@@ -59,11 +59,118 @@ namespace TRKS.WF.QQBot
             public Dictionary<string, string> Category { get; set; }
         }*/
 
+
+    /*    public class Kuva
+        {
+            public DateTime start { get; set; }
+            public DateTime end { get; set; }
+            public string missiontype { get; set; }
+            public string solnode { get; set; }
+            public Solnodedata solnodedata { get; set; }
+            public DateTime realtime { get; set; }
+        }
+
+        public class Solnodedata
+        {
+            public string name { get; set; }
+            public string tile { get; set; }
+            public string planet { get; set; }
+            public string enemy { get; set; }
+            public string type { get; set; }
+            public string node_type { get; set; }
+            public bool archwing { get; set; }
+            public bool sharkwing { get; set; }
+        }*/
+
+
+
+
+    public class RivenData
+    {
+        public string itemType { get; set; }
+        public string compatibility { get; set; }
+        public bool rerolled { get; set; }
+        public float avg { get; set; }
+        public float stddev { get; set; }
+        public int min { get; set; }
+        public int max { get; set; }
+        public int pop { get; set; }
+        public float median { get; set; }
+    }
+
+    public class Outpost
+    {
+        public OMission mission { get; set; }
+        public DateTime activation { get; set; }
+        public DateTime expiry { get; set; }
+        public bool active { get; set; }
+        public string id { get; set; }
+    }
+
+    public class OMission
+    {
+        public string node { get; set; }
+        public string faction { get; set; }
+        public string type { get; set; }
+    }
+
+    public class Kuva
+    {
+        public DateTime activation { get; set; }
+        public DateTime expiry { get; set; }
+        public string solnode { get; set; }
+        public string node { get; set; }
+        public string name { get; set; }
+        public string tile { get; set; }
+        public string planet { get; set; }
+        public string enemy { get; set; }
+        public string type { get; set; }
+        public string node_type { get; set; }
+        public bool archwing { get; set; }
+        public bool sharkwing { get; set; }
+    }
+
+    public class Arbitration
+    {
+        public DateTime activation { get; set; }
+        public DateTime expiry { get; set; }
+        public string solnode { get; set; }
+        public string node { get; set; }
+        public string name { get; set; }
+        public string tile { get; set; }
+        public string planet { get; set; }
+        public string enemy { get; set; }
+        public string type { get; set; }
+        public string node_type { get; set; }
+        public bool archwing { get; set; }
+        public bool sharkwing { get; set; }
+    }
+
+
+    public class EarthCycle
+    {
+        public string id { get; set; }
+        public DateTime expiry { get; set; }
+        public DateTime activation { get; set; }
+        public bool isDay { get; set; }
+        public string state { get; set; }
+        public string timeLeft { get; set; }
+    }
+
     public class Wiki
     {
+        public Error error { get; set; }
         public bool batchcomplete { get; set; }
         public Continue _continue { get; set; }
         public Query query { get; set; }
+    }
+
+
+    public class Error
+    {
+        public string code { get; set; }
+        public string info { get; set; }
+        public string docref { get; set; }
     }
 
     public class Continue
@@ -314,7 +421,7 @@ namespace TRKS.WF.QQBot
         public bool visible { get; set; }
         public int quantity { get; set; }
         public User user { get; set; }
-        public int platinum { get; set; }
+        public double platinum { get; set; }
         public DateTime creation_date { get; set; }
         public string region { get; set; }
         public DateTime last_update { get; set; }
@@ -662,13 +769,13 @@ namespace TRKS.WF.QQBot
         public string Id { get; set; }
         public DateTime Activation { get; set; }
         public DateTime Expiry { get; set; }
-        public Mission Mission { get; set; }
+        public AMission Mission { get; set; }
         public bool Expired { get; set; }
         public string Eta { get; set; }
         public string[] RewardTypes { get; set; }
     }
 
-    public class Mission
+    public class AMission
     {
         public string Description { get; set; }
         public string Node { get; set; }

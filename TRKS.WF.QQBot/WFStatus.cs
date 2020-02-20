@@ -22,8 +22,10 @@ namespace TRKS.WF.QQBot
         {
             var cetuscycle = api.GetCetusCycle();
             var valliscycle = api.GetVallisCycle();
+            var earthcycle = api.GetEarthCycle();
             var msg = $"{WFFormatter.ToString(cetuscycle)}\r\n" +
-                      $"{WFFormatter.ToString(valliscycle)}";
+                      $"{WFFormatter.ToString(valliscycle)}\r\n" +
+                      $"{WFFormatter.ToString(earthcycle)}";
 
             Messenger.SendGroup(group, msg.AddPlatformInfo().AddRemainCallCount(group));
         }
@@ -108,6 +110,31 @@ namespace TRKS.WF.QQBot
         {
             var msg = translator.GetTranslateResult(str).AddRemainCallCount(group);
             Messenger.SendGroup(group, msg);
+        }
+
+        public void SendKuvaMissions(GroupNumber group)
+        {
+            var sb = new StringBuilder();
+            var kuvas = api.GetKuvaMissions();
+            sb.AppendLine("以下是所有赤毒任务: \n\n");
+            // foreach (var kuva in kuvas.Where(k => k.missiontype.Contains("KuvaMission") && k.start < DateTime.Now && DateTime.Now < k.end))
+            foreach (var kuva in kuvas)
+            {
+                sb.AppendLine(WFFormatter.ToString(kuva));
+                sb.AppendLine();
+            }
+            Messenger.SendGroup(group, sb.ToString().Trim());
+        }
+
+        public void SendArbitrationMission(GroupNumber group)
+        {
+            var sb = new StringBuilder();
+            var ar = api.GetArbitrationMission();
+            // var mission = kuvas.First(k => k.missiontype == "EliteAlertMission" && k.start < DateTime.Now && DateTime.Now < k.end);
+            sb.AppendLine("以下是仲裁警报的信息: ");
+            sb.AppendLine(WFFormatter.ToString(ar));
+            Messenger.SendGroup(group, sb.ToString().Trim());
+
         }
     }
 }

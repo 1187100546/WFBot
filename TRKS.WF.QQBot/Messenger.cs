@@ -18,6 +18,12 @@ using Timer = System.Timers.Timer;
 
 namespace TRKS.WF.QQBot
 {
+    public static class MessengerHandlers
+    {
+        public static Action<string> DebugAlternateHandler;
+        public static Action<string> MessageAlternateHandler;
+    }
+
     public static class Messenger
     {
         public static Dictionary<string, int> GroupCallDic = new Dictionary<string, int>();
@@ -26,23 +32,30 @@ namespace TRKS.WF.QQBot
 
         static Messenger()
         {
-            if (DebugAlternateHandler == null) return;
+            // 大家都知道你很蠢啦
 
             PrivateMessageTimer.Elapsed += (s, e) =>
             {
+                if (MessengerHandlers.DebugAlternateHandler != null) return;
                 lock (typeof(Messenger))
                 {
-                    foreach (var pair in PrivateMessageDictionary)
+                    try
                     {
-                        using (var robotSession = MahuaRobotManager.Instance.CreateSession())
+                        foreach (var pair in PrivateMessageDictionary)
                         {
-                            var api = robotSession.MahuaApi;
-                            api.SendPrivateMessage(pair.Key, pair.Value);
+                            using (var robotSession = MahuaRobotManager.Instance.CreateSession())
+                            {
+                                var api = robotSession.MahuaApi;
+                                api.SendPrivateMessage(pair.Key, pair.Value);
+                            }
                         }
+                        PrivateMessageDictionary.Clear();
                     }
-                    PrivateMessageDictionary.Clear();
+                    catch (Exception)
+                    {
+                    }
                 }
-                
+
             };
             PrivateMessageTimer.Start();
         }
@@ -57,18 +70,15 @@ namespace TRKS.WF.QQBot
             {
                 GroupCallDic[group] = 1;
             }
-            Task.Delay(TimeSpan.FromSeconds(60)).ContinueWith(task => GroupCallDic[group] = 0);
+            Task.Delay(TimeSpan.FromSeconds(60)).ContinueWith(task => GroupCallDic[group]--);
 
         }
 
-        public static Action<string> DebugAlternateHandler;
-        public static Action<string> MessageAlternateHandler;
-
         public static void SendDebugInfo(string content)
         {
-            if (DebugAlternateHandler != null)
+            if (MessengerHandlers.DebugAlternateHandler != null)
             {
-                DebugAlternateHandler(content);
+                MessengerHandlers.DebugAlternateHandler(content);
                 return;
             }
 
@@ -97,9 +107,9 @@ namespace TRKS.WF.QQBot
         [MethodImpl(MethodImplOptions.Synchronized)]
         public static void SendGroup(GroupNumber g, string content)
         {
-            if (MessageAlternateHandler != null)
+            if (MessengerHandlers.MessageAlternateHandler != null)
             {
-                MessageAlternateHandler(content);
+                MessengerHandlers.MessageAlternateHandler(content);
                 return;
             }
 
@@ -108,7 +118,6 @@ namespace TRKS.WF.QQBot
 
             previousMessageDic[qq] = content;
 
-            IncreaseCallCounts(qq);
             using (var robotSession = MahuaRobotManager.Instance.CreateSession())
             {
                 var api = robotSession.MahuaApi;
@@ -140,16 +149,23 @@ namespace TRKS.WF.QQBot
         public static void SendBotStatus(GroupNumber group)
         {
             var sb = new StringBuilder();
-            var apistat = WebHelper.TryGet("https://warframestat.us");
-            var wmstat = WebHelper.TryGet("https://api.warframe.market/v1/items/valkyr_prime_set/orders?include=item");
-            var wfastat = WebHelper.TryGet("https://api.richasy.cn/wfa/rm/riven");
-            if (apistat.IsOnline && wmstat.IsOnline && wfastat.IsOnline)
+            var q1 = Task.Run(() => WebHelper.TryGet("https://warframestat.us"));
+            var q2 = Task.Run(() => WebHelper.TryGet("https://api.warframe.market/v1/items/valkyr_prime_set/orders?include=item"));
+            var q3 = Task.Run(() => WebHelper.TryGet("https://api.richasy.cn/wfa/rm/riven"));
+            var q4 = Task.Run(() => WebHelper.TryGet("https://10o.io/kuvalog.json"));
+            Task.WaitAll(q1, q2, q3, q4);
+
+            var apistat = q1.Result;
+            var wmstat = q2.Result;
+            var wfastat = q3.Result;
+            var kuvastat = q4.Result;
+            if (apistat.IsOnline && wmstat.IsOnline && wfastat.IsOnline && kuvastat.IsOnline)
             {
                 sb.AppendLine("机器人状态: 一切正常");
             }
             else
             {
-                sb.AppendLine("机器人状态: 错误");
+                sb.AppendLine("机器人状态: 不正常");
             }
 
             if (InitEvent1.onlineBuild)
@@ -160,9 +176,10 @@ namespace TRKS.WF.QQBot
             {
                 sb.AppendLine($"插件版本: 非官方");
             }
-            sb.AppendLine($"    任务API: {apistat.Latency}ms [{(apistat.IsOnline? "在线" : "离线")}]");
+            sb.AppendLine($"    任务API: {apistat.Latency}ms [{(apistat.IsOnline ? "在线" : "离线")}]");
             sb.AppendLine($"    WarframeMarket: {wmstat.Latency}ms [{(wmstat.IsOnline ? "在线" : "离线")}]");
             sb.AppendLine($"    WFA紫卡市场: {wfastat.Latency}ms [{(wfastat.IsOnline ? "在线" : "离线")}]");
+            sb.AppendLine($"    赤毒/仲裁API: {kuvastat.Latency}ms [{(kuvastat.IsOnline ? "在线" : "离线")}]");
             var commit = CommitsGetter.Get("https://api.github.com/repos/TRKS-Team/WFBot/commits")?.Format() ?? "GitHub Commit 获取异常, 可能是请求次数过多, 如果你是机器人主人, 解决方案请查看 FAQ.";
             sb.AppendLine(commit);
             sb.ToString().Trim().AddPlatformInfo().SendToGroup(group);
@@ -184,46 +201,42 @@ namespace TRKS.WF.QQBot
         {
             SendGroup(@group, @"欢迎查看机器人唯一指定帮助文档
 宣传贴地址: https://warframe.love/thread-230.htm
-在线最新文档: https://github.com/TRKS-Team/WFBot/blob/master/README.md (绝对最新的文档)
-↑这个文档你们多读一读,机器人最新最好玩的功能都写在里面了.
+在线最新文档: https://github.com/TRKS-Team/WFBot/blob/master/README.md 
 项目地址: https://github.com/TRKS-Team/WFBot
 赞助(乞讨)地址: https://afdian.net/@TheRealKamisama
-您的赞助会用来维持公用机器人,也能推动我继续维护本插件.
-本机器人为公益项目,持续维护中.
-如果你见到有人使用本插件盈利,请在上方项目地址反馈.");
+您的赞助会用来维持公用机器人, 也能推动我继续维护本插件.
+本机器人为公益项目, 持续维护中.
+如果你见到有人使用本插件盈利, 请在上方项目地址反馈.
+如果你想给你的群也整个机器人, 请在上方项目地址了解");
             if (File.Exists("data/image/帮助文档.png"))
             {
                 SendGroup(@group, @"[CQ:image,file=\帮助文档.png]");
             }
             else
             {
-                SendGroup(@group, @"欢迎查看破机器人的帮助文档,如有任何bug和崩溃请多多谅解.
-作者: TheRealKamisama 开源地址: https://github.com/TRKS-Team/WFBot
+                SendGroup(@group, @"作者: TheRealKamisama
 如果群里没有自动通知 请务必检查是否启用了通知功能
-    Wiki: /wiki [关键词] 搜索wiki上的页面
-    午夜电波: /午夜电波 每日每周即将过期的挑战
-    机器人状态: /机器人状态 机器人目前的运行状态.
-    警报: /警报 当前的所有警报.
-    入侵: /入侵 当前的所有入侵.
-    突击: /突击 当前的所有突击.
-    平原时间: /平原 地球平原 现在的时间 和 金星平原 现在的温度.
-    活动: /活动 目前的所有活动
-    虚空商人信息: /虚空商人 奸商的状态.
-        如果虚空商人已经抵达将会输出所有的商品和价格, 长度较长.
-    WarframeMarket: /查询 [物品名称]
-        查询未开紫卡请输入: 手枪未开紫卡
-    紫卡市场: /紫卡 [武器名称]
-        数据来自 WFA 紫卡市场
-    地球赏金: /地球赏金 地球平原的全部/单一赏金任务.
-    金星赏金: /金星赏金 金星平原的全部/单一赏金任务.
-    裂隙: /裂隙 来查询全部裂隙.
-    遗物: /遗物 [关键词] (eg. 后纪 s3, 前纪 B3) 所有与关键词有关的遗物.
-    翻译: /翻译 [关键词]（eg. 致残突击 犀牛prime) 中 -> 英 / 英 -> 中 翻译.
-    小小黑:/小小黑 目前小小黑的信息.
-私聊管理命令:
-    启用群通知: 默认可使用 添加群 ******* 群号 来启用[群号]对应的群的通知功能.
-    禁用群通知: 默认可使用 删除群 ******* 群号 来禁用[群号]对应的群的通知功能.
-    不启用通知功能新的任务将不会通知到群内.
+    /wiki [关键词] | 搜索 wiki 上的页面
+    /午夜电波 | 每日每周即将过期的挑战
+    /机器人状态 | 机器人目前的运行状态
+    /警报 | 当前的所有警报
+    /入侵 | 当前的所有入侵
+    /突击 | 当前的所有突击
+    /活动 | 当前的所有活动
+    /虚空商人 | 奸商的状态
+    /平原 | 地球平原 现在的时间 和 金星平原 现在的温度
+    /查询 [物品名称] | 查询 WarframeMarket, 查询未开紫卡请输入: 手枪未开紫卡
+    /紫卡 [武器名称] | 紫卡市场 数据来自 WFA 紫卡市场
+    /地球赏金 | 地球平原的全部/单一赏金任务
+    /金星赏金 | 金星平原的全部/单一赏金任务
+    /裂隙 | 查询全部裂隙
+    /遗物 [关键词] | (eg. 后纪 s3 前纪 B3) 所有与关键词有关的遗物
+    /翻译 [关键词] |（eg. 致残突击 犀牛prime) 中 -> 英 / 英 -> 中 翻译
+    /小小黑 目前小小黑的信息
+*私聊*管理命令:
+    /添加群 ******* 群号 | 启用 [群号] 对应的群的通知功能
+    /删除群 ******* 群号 | 禁用 [群号] 对应的群的通知功能
+    不启用通知功能新的任务将不会通知到群内
 ");
             }
         }

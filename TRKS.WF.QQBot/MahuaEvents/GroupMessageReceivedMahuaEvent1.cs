@@ -47,6 +47,10 @@ namespace TRKS.WF.QQBot.MahuaEvents
 
                 var handler = new GroupMessageHandler(context.FromQq.ToHumanQQNumber(), context.FromGroup.ToGroupNumber(), message);
                 var (matched, result) = handler.ProcessCommandInput();
+                if (matched)
+                {
+                    IncreaseCallCounts(context.FromGroup);
+                }
 
             }, TaskCreationOptions.LongRunning);
         }
@@ -71,17 +75,21 @@ namespace TRKS.WF.QQBot.MahuaEvents
         void WM(string word)
         {
             const string quickReply = " -QR";
-            if (word.EndsWith(quickReply) || word.EndsWith(quickReply.ToLower()))
+            const string buyer = " -B";
+            var QR = false;
+            var B = false;
+            if (word.Contains(quickReply) || word.Contains(quickReply.ToLower()))
             {
-                _wmSearcher.SendWMInfo(word.Replace(quickReply, "")
-                    .Replace(quickReply.ToLower(), "")
-                    .Format(), Group, true);
+                QR = true;
             }
-            else
+
+            if (word.Contains(buyer) || word.Contains(buyer.ToLower()))
             {
-                _wmSearcher.SendWMInfo(word.Format(), Group, false);
+                B = true;
             }
-        }
+            // 小屎山
+            _wmSearcher.SendWMInfo(word.Replace(quickReply, "").Replace(quickReply.ToLower(), "").Replace(buyer, "").Replace(buyer.ToLower(), "").Format(), Group, QR, B);
+        } 
 
         [Matchers("紫卡")]
         [CombineParams]
@@ -150,7 +158,7 @@ namespace TRKS.WF.QQBot.MahuaEvents
             _WFStatus.SendFissures(Group);
         }
 
-        [Matchers("小小黑", "追随者", "焦虑", "怨恨", "躁狂", "苦难", "折磨", "暴力")]
+        [Matchers("小小黑", "追随者")]
         void AllPersistentEnemies()
         {
             WfNotificationHandler.SendAllPersistentEnemies(Group);
@@ -161,6 +169,8 @@ namespace TRKS.WF.QQBot.MahuaEvents
         {
             SendHelpdoc(Group);
         }
+
+        [DoNotMeasureTime]
         [Matchers("status", "状态", "机器人状态", "机器人信息", "我需要机器人")]
         void Status()
         {
@@ -173,12 +183,24 @@ namespace TRKS.WF.QQBot.MahuaEvents
             _WFStatus.SendNightWave(Group);
         }
 
-        [Matchers("wiki", "维基", "灰机wiki", "灰机维基")]
+        [Matchers("wiki")]
         [CombineParams]
-        string Wiki(string word)
+        string Wiki(string word = "wiki")
         {
-            return _wikiSearcher.SendSearch(word);
+            return _wikiSearcher.SendSearch(word).Replace("'", "%27");
             // 这简直就是官方吞mod最形象的解释
+        }
+
+        [Matchers("仲裁", "仲裁警报", "精英警报")]
+        void Arbitration()
+        {
+            _WFStatus.SendArbitrationMission(Group);
+        }
+
+        [Matchers("赤毒", "赤毒虹吸器", "赤毒洪潮", "赤毒任务")]
+        void Kuva()
+        {
+            _WFStatus.SendKuvaMissions(Group);
         }
     }
 
@@ -203,6 +225,7 @@ namespace TRKS.WF.QQBot.MahuaEvents
 
         public GroupMessageHandler(HumanQQNumber sender, GroupNumber group, string message)
         {
+            _ = InitEvent1.localVersion;
             Sender = sender;
             MessageSender = (id, msg) =>
             {

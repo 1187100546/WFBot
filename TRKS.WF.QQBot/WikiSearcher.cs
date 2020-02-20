@@ -1,32 +1,43 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Text;
-using GammaLibrary.Extensions;
 using Settings;
 
 namespace TRKS.WF.QQBot
 {
     public class WikiSearcher
     {
-        private static WFTranslator translator => WFResource.WFTranslator;
         private const string wikilink = "https://warframe.huijiwiki.com/wiki/";
+
+
         public string SendSearch(string word)
         {
-            if (word.IsNullOrEmpty())
+
+            if (word == "wiki")
             {
                 return $"为指挥官献上wiki的链接: {wikilink}";
             }
 
             var wiki = GetWiki(word);
-            if (wiki.query.search.Select(s => s.title.Format()).Contains(word.Format()))
+            if (!string.IsNullOrEmpty(wiki?.error?.code))
             {
-                return $"为指挥官献上[{word}]的链接: {wikilink + word.Format()}";
+                var sb1 = new StringBuilder();
+                sb1.AppendLine("灰机wikiApi出错");
+                sb1.AppendLine($"错误代码: {wiki?.error?.code}");
+                sb1.AppendLine($"错误描述: {wiki?.error?.info}");
+                return sb1.ToString().Trim();
+            }
+            var words = wiki.query.search.Select(s => s.title).Where(w => w.Format() == word.Format()).ToArray();
+            if (words.Any())
+            {
+                return $"为指挥官献上[{word}]的链接: {wikilink + Uri.EscapeUriString(words.First())}";
             }
             var sb = new StringBuilder();
             sb.AppendLine($"Wiki页面 {word} 不存在.");
-            var similarlist = wiki.query.search.Select(s => s.title).Take(3);
+            var similarlist = wiki.query.search.Select(s => s.title).Take(3).ToArray();
             if (similarlist.Any())
             {
-                sb.AppendLine("请问这下面有没有你要找的呢?（可尝试复制下面的名称来进行搜索)");
+                sb.AppendLine("相似内容:（可复制下面来搜索)");
                 foreach (var item in similarlist)
                 {
                     sb.AppendLine($"    {item}");
@@ -42,4 +53,5 @@ namespace TRKS.WF.QQBot
                 $"https://warframe.huijiwiki.com/api.php?action=query&format=json&formatversion=2&list=search&srsearch={word}");
         }
     }
+
 }
